@@ -265,11 +265,11 @@ export default function App() {
 
         if (result.saved) {
           setMessage(
-            `বাহ! আপনি নিজের আগের রেকর্ড ভেঙেছেন। নতুন স্কোর: ${submittedScore}`
+            `ওয়াও মামা পুরো ফাটাই দিছেন , নতুন স্কোর: ${submittedScore}`
           );
         } else {
           setMessage(
-            `আপনার আগের স্কোর ${result.previousBest} ছিল। এইবারের স্কোর তার চেয়ে কম বা সমান, তাই সেভ হয়নি। আরও জোরে চেষ্টা করুন!`
+            `আগের স্কোর ${result.previousBest} ছিল। এইবারের স্কোর তার চেয়ে কম mama ):. tomar bou thakbe na emon korle.`
           );
         }
       })
