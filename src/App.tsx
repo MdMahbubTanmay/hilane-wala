@@ -11,6 +11,10 @@ import {
   LoaderCircle,
   Lock,
   Mail,
+  Crown,
+  Gem,
+  Award,
+  LogIn,
 } from "lucide-react";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,7 +32,7 @@ import {
   getMyRank,
   type Profile,
   type Score,
-  getTotalPlayers
+  getTotalPlayers,
 } from "./firebase";
 
 import {
@@ -46,6 +50,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>("home");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
@@ -72,13 +77,11 @@ export default function App() {
 
   const [saving, setSaving] = useState(false);
 
-
   const authUidRef = useRef<string | null>(auth.currentUser?.uid ?? null);
   const challengeOwnerRef = useRef<string | null>(null);
   const savingScoreRef = useRef(false);
 
   const [totalPlayers, setTotalPlayers] = useState(0);
-
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(async (currentUser) => {
@@ -101,7 +104,6 @@ export default function App() {
         setMotionError("");
         setMessage("");
 
-        setLeaderboard([]);
         setMyRank(null);
         setSelectedPlayer(null);
 
@@ -112,9 +114,9 @@ export default function App() {
       }
 
       if (currentUser) {
+        setShowAuthModal(false);
         try {
           const data = await getProfile(currentUser.uid);
-
 
           if (authUidRef.current === currentUser.uid) {
             setProfile(data);
@@ -139,11 +141,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-
   useEffect(() => {
     return () => stopShakeDetection();
   }, []);
-
 
   useEffect(() => {
     if (!running) return;
@@ -165,7 +165,6 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [running]);
 
-
   useEffect(() => {
     if (!completed || !user || count <= 0) return;
 
@@ -186,7 +185,6 @@ export default function App() {
 
     submitScore(submittedUid, submittedScore)
       .then((result) => {
-
         if (
           auth.currentUser?.uid !== submittedUid ||
           authUidRef.current !== submittedUid
@@ -225,36 +223,38 @@ export default function App() {
       });
   }, [completed, user, count]);
 
-
   async function loadRanks() {
-  setRankLoading(true);
+    setRankLoading(true);
 
-  try {
-    const scores = await getLeaderboard();
-    setLeaderboard(scores);
-  } catch (error) {
-    console.error("Leaderboard error:", error);
+    try {
+      const scores = await getLeaderboard();
+      setLeaderboard(scores);
+    } catch (error) {
+      console.error("Leaderboard error:", error);
+    }
+
+    try {
+      const rank = user ? await getMyRank(user.uid) : null;
+      setMyRank(rank);
+    } catch (error) {
+      console.error("Rank error:", error);
+    }
+
+    try {
+      const total = await getTotalPlayers();
+      setTotalPlayers(total);
+    } catch (error) {
+      console.error("Total players error:", error);
+    }
+
+    setRankLoading(false);
   }
 
-  try {
-    const rank = user ? await getMyRank(user.uid) : null;
-    setMyRank(rank);
-  } catch (error) {
-    console.error("Rank error:", error);
-  }
-
-  try {
-    const total = await getTotalPlayers();
-    setTotalPlayers(total);
-  } catch (error) {
-    console.error("Total players error:", error);
-  }
-
-  setRankLoading(false);
-}
 
   useEffect(() => {
-    if (page === "ranks") loadRanks();
+    if (!user || page === "ranks") {
+      loadRanks();
+    }
   }, [page, user]);
 
   async function handleAuth(e: React.FormEvent) {
@@ -297,8 +297,6 @@ export default function App() {
     setMessage("");
 
     savingScoreRef.current = false;
-
-
     challengeOwnerRef.current = user.uid;
 
     setRunning(true);
@@ -353,6 +351,107 @@ export default function App() {
     }
   }
 
+  function renderTopBadge(index: number) {
+    if (index === 0) {
+      // 1st: Diamond Crown Badge
+      return (
+        <span
+          title="1st Place - Diamond"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            padding: "3px 8px",
+            borderRadius: 999,
+            background: "linear-gradient(135deg, #38bdf8, #818cf8)",
+            color: "#090d16",
+            fontWeight: 800,
+            fontSize: 12,
+            boxShadow: "0 0 12px rgba(56, 189, 248, 0.45)",
+          }}
+        >
+          <Gem size={14} /> #1
+        </span>
+      );
+    }
+
+    if (index === 1) {
+
+      return (
+        <span
+          title="2nd Place - Gold"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            padding: "3px 8px",
+            borderRadius: 999,
+            background: "linear-gradient(135deg, #facc15, #f59e0b)",
+            color: "#1a1200",
+            fontWeight: 800,
+            fontSize: 12,
+            boxShadow: "0 0 10px rgba(250, 204, 21, 0.35)",
+          }}
+        >
+          <Crown size={14} /> #2
+        </span>
+      );
+    }
+
+    if (index === 2) {
+
+      return (
+        <span
+          title="3rd Place - Bronze"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            padding: "3px 8px",
+            borderRadius: 999,
+            background: "linear-gradient(135deg, #fb923c, #b45309)",
+            color: "#fff7ed",
+            fontWeight: 800,
+            fontSize: 12,
+            boxShadow: "0 0 10px rgba(251, 146, 60, 0.3)",
+          }}
+        >
+          <Award size={14} /> #3
+        </span>
+      );
+    }
+
+    return <span className="rank-number">#{index + 1}</span>;
+  }
+
+  function getTopRowStyle(index: number): React.CSSProperties | undefined {
+    if (index === 0) {
+      return {
+        border: "1px solid rgba(56, 189, 248, 0.45)",
+        background:
+          "linear-gradient(90deg, rgba(56,189,248,0.12), rgba(129,140,248,0.06))",
+      };
+    }
+    if (index === 1) {
+      return {
+        border: "1px solid rgba(250, 204, 21, 0.4)",
+        background:
+          "linear-gradient(90deg, rgba(250,204,21,0.10), rgba(245,158,11,0.04))",
+      };
+    }
+    if (index === 2) {
+      return {
+        border: "1px solid rgba(251, 146, 60, 0.35)",
+        background:
+          "linear-gradient(90deg, rgba(251,146,60,0.10), rgba(180,83,9,0.04))",
+      };
+    }
+    return undefined;
+  }
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -362,106 +461,412 @@ export default function App() {
     );
   }
 
+
   if (!user) {
+    const first = leaderboard[0];
+    const second = leaderboard[1];
+    const third = leaderboard[2];
+
+
+    const podiumSlots = [
+      {
+        place: 2,
+        label: "GOLD",
+        player: second,
+        height: 112,
+        accent: "#facc15",
+        bg: "linear-gradient(180deg, rgba(250,204,21,0.24) 0%, rgba(250,204,21,0.06) 100%)",
+        icon: <Crown size={18} color="#facc15" />,
+      },
+      {
+        place: 1,
+        label: "DIAMOND",
+        player: first,
+        height: 148,
+        accent: "#38bdf8",
+        bg: "linear-gradient(180deg, rgba(56,189,248,0.28) 0%, rgba(129,140,248,0.08) 100%)",
+        icon: <Gem size={20} color="#38bdf8" />,
+      },
+      {
+        place: 3,
+        label: "BRONZE",
+        player: third,
+        height: 92,
+        accent: "#fb923c",
+        bg: "linear-gradient(180deg, rgba(251,146,60,0.22) 0%, rgba(180,83,9,0.06) 100%)",
+        icon: <Award size={18} color="#fb923c" />,
+      },
+    ];
+
     return (
-      <main className="auth-screen">
-        <div className="auth-card">
+      <div className="app">
+        <header className="topbar">
           <div className="brand">
-            HILANE <span>WALA.</span>
+            HILANE <span>WALA</span>
           </div>
 
-          <div className="auth-icon">
-            <User size={32} />
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode("login");
+              setMessage("");
+              setShowAuthModal(true);
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(255,255,255,0.08)",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <LogIn size={15} /> Login
+          </button>
+        </header>
+
+        <main className="home-page" style={{ paddingBottom: 40 }}>
+          <div className="challenge-heading">
+            <span className="eyebrow">Kaun Banega</span>
+            <h1>Best Hilane Wala</h1>
+            <h3>জোরে ঝাঁকাও, দুনিয়া কাঁপাও.</h3>
           </div>
 
-          <h1>
-            {authMode === "login" ? "Welcome Back!" : "Join The Challenge"}
-          </h1>
-
-          <p className="muted">
-            {authMode === "login"
-              ? "Login to continue your journey."
-              : "Create your account and compete globally."}
-          </p>
-
-          <form onSubmit={handleAuth}>
-            {authMode === "register" && (
-              <>
-                <label>Username</label>
-                <input
-                  required
-                  minLength={3}
-                  maxLength={20}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="your_username"
-                />
-
-                <label>Profile Photo URL (Optional)</label>
-                <input
-                  type="url"
-                  value={photoURL}
-                  onChange={(e) => setPhotoURL(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                />
-              </>
-            )}
-
-            <label>Email Address</label>
-            <div className="input-wrap">
-              <Mail size={17} />
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <label>Password</label>
-            <div className="input-wrap">
-              <Lock size={17} />
-              <input
-                required
-                type="password"
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimum 6 characters"
-              />
-            </div>
-
-            {message && <p className="notice">{message}</p>}
-
-            <button className="primary-button" disabled={authLoading}>
-              {authLoading
-                ? "PLEASE WAIT..."
-                : authMode === "login"
-                  ? "LOGIN"
-                  : "CREATE ACCOUNT"}
-            </button>
-          </form>
-
-          <p className="auth-switch">
-            {authMode === "login"
-              ? "Don't have an account?"
-              : "Already registered?"}
-
-            <button
-              onClick={() => {
-                setAuthMode(authMode === "login" ? "register" : "login");
-                setMessage("");
+          <section
+            className="challenge-card"
+            style={{ paddingTop: 22, paddingBottom: 22 }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                marginBottom: 14,
               }}
             >
-              {authMode === "login" ? "Register" : "Login"}
-            </button>
-          </p>
-        </div>
-      </main>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  opacity: 0.85,
+                }}
+              >
+                <Trophy size={15} /> TOP 3 PODIUM
+              </span>
+
+              <span style={{ fontSize: 12, opacity: 0.65 }}>
+                {totalPlayers > 0 ? `${totalPlayers} Players` : "Live Champions"}
+              </span>
+            </div>
+
+            {rankLoading ? (
+              <div style={{ padding: "36px 0" }}>
+                <LoaderCircle className="spin" size={28} />
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <p className="muted" style={{ padding: "24px 0" }}>
+                No champions yet. Login and claim the #1 podium!
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1.12fr 1fr",
+                  alignItems: "flex-end",
+                  gap: 10,
+                  width: "100%",
+                  marginTop: 8,
+                }}
+              >
+                {podiumSlots.map((slot) => (
+                  <div
+                    key={slot.place}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                    }}
+                  >
+    
+                    <div
+                      style={{
+                        position: "relative",
+                        marginBottom: 8,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ marginBottom: 4 }}>{slot.icon}</div>
+                      {slot.player?.photoURL ? (
+                        <img
+                          src={slot.player.photoURL}
+                          alt={slot.player.username}
+                          style={{
+                            width: slot.place === 1 ? 58 : 46,
+                            height: slot.place === 1 ? 58 : 46,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            border: `2px solid ${slot.accent}`,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: slot.place === 1 ? 58 : 46,
+                            height: slot.place === 1 ? 58 : 46,
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            background: "rgba(255,255,255,0.08)",
+                            border: `2px solid ${slot.accent}`,
+                          }}
+                        >
+                          <User size={slot.place === 1 ? 24 : 20} />
+                        </div>
+                      )}
+                    </div>
+
+
+                    <strong
+                      style={{
+                        fontSize: slot.place === 1 ? 13 : 12,
+                        maxWidth: 92,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        marginBottom: 6,
+                      }}
+                    >
+                      {slot.player ? slot.player.username : "---"}
+                    </strong>
+
+
+                    <div
+                      style={{
+                        width: "100%",
+                        height: slot.height,
+                        borderRadius: "14px 14px 8px 8px",
+                        background: slot.bg,
+                        border: `1px solid ${slot.accent}55`,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "8px 4px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: slot.place === 1 ? 22 : 18,
+                          fontWeight: 900,
+                          color: slot.accent,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        #{slot.place}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: 0.8,
+                          opacity: 0.75,
+                          marginTop: 2,
+                        }}
+                      >
+                        {slot.label}
+                      </span>
+                      <strong
+                        style={{
+                          fontSize: slot.place === 1 ? 15 : 13,
+                          marginTop: 6,
+                        }}
+                      >
+                        {slot.player ? slot.player.bestScore : 0}
+                      </strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ width: "100%", marginTop: 22 }}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  setAuthMode("login");
+                  setMessage("");
+                  setShowAuthModal(true);
+                }}
+              >
+                <Play size={18} fill="currentColor" />
+                LOGIN TO PLAY & SEE TOP 10
+              </button>
+            </div>
+
+            <p className="challenge-hint">
+              Login or create an account to shake, save your score & compete in the Top 10.
+            </p>
+          </section>
+        </main>
+
+    
+        {showAuthModal && (
+          <div
+            onClick={() => setShowAuthModal(false)}
+            role="presentation"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1000,
+              display: "grid",
+              placeItems: "center",
+              padding: 16,
+              background: "rgba(0,0,0,0.78)",
+              backdropFilter: "blur(8px)",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              className="auth-card"
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: "relative", margin: "auto" }}
+            >
+              <button
+                type="button"
+                aria-label="Close login modal"
+                onClick={() => setShowAuthModal(false)}
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 14,
+                  border: 0,
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: 24,
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+
+              <div className="brand">
+                HILANE <span>WALA.</span>
+              </div>
+
+              <div className="auth-icon">
+                <User size={32} />
+              </div>
+
+              <h1>
+                {authMode === "login" ? "Welcome Back!" : "Join The Challenge"}
+              </h1>
+
+              <p className="muted">
+                {authMode === "login"
+                  ? "Login to continue your journey."
+                  : "Create your account and compete globally."}
+              </p>
+
+              <form onSubmit={handleAuth}>
+                {authMode === "register" && (
+                  <>
+                    <label>Username</label>
+                    <input
+                      required
+                      minLength={3}
+                      maxLength={20}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="your_username"
+                    />
+
+                    <label>Profile Photo URL (Optional)</label>
+                    <input
+                      type="url"
+                      value={photoURL}
+                      onChange={(e) => setPhotoURL(e.target.value)}
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                  </>
+                )}
+
+                <label>Email Address</label>
+                <div className="input-wrap">
+                  <Mail size={17} />
+                  <input
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                <label>Password</label>
+                <div className="input-wrap">
+                  <Lock size={17} />
+                  <input
+                    required
+                    type="password"
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                  />
+                </div>
+
+                {message && <p className="notice">{message}</p>}
+
+                <button className="primary-button" disabled={authLoading}>
+                  {authLoading
+                    ? "PLEASE WAIT..."
+                    : authMode === "login"
+                      ? "LOGIN"
+                      : "CREATE ACCOUNT"}
+                </button>
+              </form>
+
+              <p className="auth-switch">
+                {authMode === "login"
+                  ? "Don't have an account?"
+                  : "Already registered?"}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode(authMode === "login" ? "register" : "login");
+                    setMessage("");
+                  }}
+                >
+                  {authMode === "login" ? "Register" : "Login"}
+                </button>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <footer>
+          Md Mahbub Tanmay
+          <span>Department of Software Engineering, UFTB.</span>
+        </footer>
+      </div>
     );
   }
 
+  
   return (
     <div className="app">
       <header className="topbar">
@@ -563,35 +968,18 @@ export default function App() {
             <span className="eyebrow">GLOBAL COMPETITION</span>
             <h1>Leaderboard</h1>
             <p className="muted">The best 'Hilane Wala' in the world.</p>
-            
-            
-            
+
             <div className="total-players-card">
               <div>
                 <span>TOTAL REGISTERED PLAYERS</span>
                 <h2>{totalPlayers.toLocaleString()}</h2>
               </div>
 
-
-
               <div>
-
                 <span className="muted">YOUR GLOBAL RANK</span>
                 <h2>{myRank ? `#${myRank}` : "Unranked"}</h2>
               </div>
-
             </div>
-
-            {/* <div className="my-rank-card">
-              <div>
-
-                <span className="muted">YOUR GLOBAL RANK</span>
-                <h2>{myRank ? `#${myRank}` : "Unranked"}</h2>
-              </div>
-              <Trophy size={35} />
-
-            </div> */}
-
 
             <div className="leaderboard">
               <div className="leaderboard-title">
@@ -614,9 +1002,10 @@ export default function App() {
                     type="button"
                     className="rank-row"
                     key={player.uid}
+                    style={getTopRowStyle(index)}
                     onClick={() => setSelectedPlayer(player)}
                   >
-                    <span className="rank-number">#{index + 1}</span>
+                    {renderTopBadge(index)}
 
                     {player.photoURL ? (
                       <img src={player.photoURL} alt="" />
@@ -628,7 +1017,17 @@ export default function App() {
 
                     <div className="rank-player">
                       <strong>{player.username}</strong>
-                      <span>{player.uid === user.uid ? "YOU" : "PLAYER"}</span>
+                      <span>
+                        {player.uid === user.uid
+                          ? "YOU"
+                          : index === 0
+                            ? "DIAMOND CHAMPION"
+                            : index === 1
+                              ? "GOLD CONTENDER"
+                              : index === 2
+                                ? "BRONZE FINISHER"
+                                : "PLAYER"}
+                      </span>
                     </div>
 
                     <strong className="rank-score">{player.bestScore}</strong>
@@ -807,8 +1206,6 @@ export default function App() {
             <h2 style={{ margin: "8px 0 4px" }}>
               {selectedPlayer.username}
             </h2>
-
-
 
             <div
               className="profile-note-box"
