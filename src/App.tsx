@@ -869,7 +869,7 @@ export default function App() {
 
       <footer>
         Md Mahbub Tanmay
-        <span>Department of Software Engineering, UFTB</span>
+        <span>Department of Software Engineering, UFTB.</span>
       </footer>
     </div>
   );
