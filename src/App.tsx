@@ -80,8 +80,78 @@ export default function App() {
   const authUidRef = useRef<string | null>(auth.currentUser?.uid ?? null);
   const challengeOwnerRef = useRef<string | null>(null);
   const savingScoreRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [totalPlayers, setTotalPlayers] = useState(0);
+
+  function unlockAudioContext() {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioCtx) return;
+
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioCtx();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch {
+      // Ignore if AudioContext is unavailable
+    }
+  }
+
+  function triggerFinishFeedback() {
+    // 1. Phone vibration (supported on Android browsers)
+    try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate([300, 120, 450]);
+      }
+    } catch {
+      // Ignore on unsupported devices
+    }
+
+    // 2. Crisp 3-tone finish chime (works on both iOS & Android)
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = audioCtxRef.current ?? new AudioCtx();
+      audioCtxRef.current = ctx;
+
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const now = ctx.currentTime;
+      const notesHz = [523.25, 659.25, 783.99]; // C5, E5, G5
+
+      notesHz.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+
+        gain.gain.setValueAtTime(0.001, now + idx * 0.14);
+        gain.gain.exponentialRampToValueAtTime(0.35, now + idx * 0.14 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + idx * 0.14);
+        osc.stop(now + idx * 0.14 + 0.36);
+      });
+    } catch {
+      // Ignore audio errors
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(async (currentUser) => {
@@ -155,6 +225,7 @@ export default function App() {
           setRunning(false);
           setCompleted(true);
           stopShakeDetection();
+          triggerFinishFeedback();
           return 0;
         }
 
@@ -250,7 +321,6 @@ export default function App() {
     setRankLoading(false);
   }
 
-
   useEffect(() => {
     if (!user || page === "ranks") {
       loadRanks();
@@ -280,6 +350,8 @@ export default function App() {
   async function startChallenge() {
     if (!user || running) return;
 
+    // Unlock mobile browser audio during user tap gesture
+    unlockAudioContext();
     setMotionError("");
 
     const allowed = await requestMotionPermission();
@@ -353,7 +425,6 @@ export default function App() {
 
   function renderTopBadge(index: number) {
     if (index === 0) {
-      // 1st: Diamond Crown Badge
       return (
         <span
           title="1st Place - Diamond"
@@ -377,7 +448,6 @@ export default function App() {
     }
 
     if (index === 1) {
-
       return (
         <span
           title="2nd Place - Gold"
@@ -401,7 +471,6 @@ export default function App() {
     }
 
     if (index === 2) {
-
       return (
         <span
           title="3rd Place - Bronze"
@@ -461,12 +530,10 @@ export default function App() {
     );
   }
 
-
   if (!user) {
     const first = leaderboard[0];
     const second = leaderboard[1];
     const third = leaderboard[2];
-
 
     const podiumSlots = [
       {
@@ -597,7 +664,6 @@ export default function App() {
                       alignItems: "center",
                     }}
                   >
-    
                     <div
                       style={{
                         position: "relative",
@@ -637,7 +703,6 @@ export default function App() {
                       )}
                     </div>
 
-
                     <strong
                       style={{
                         fontSize: slot.place === 1 ? 13 : 12,
@@ -650,7 +715,6 @@ export default function App() {
                     >
                       {slot.player ? slot.player.username : "---"}
                     </strong>
-
 
                     <div
                       style={{
@@ -722,7 +786,6 @@ export default function App() {
           </section>
         </main>
 
-    
         {showAuthModal && (
           <div
             onClick={() => setShowAuthModal(false)}
@@ -866,7 +929,6 @@ export default function App() {
     );
   }
 
-  
   return (
     <div className="app">
       <header className="topbar">
@@ -1266,7 +1328,7 @@ export default function App() {
 
       <footer>
         Md Mahbub Tanmay
-        <span>Department of Software Engineering, UFTB.</span>
+        <span>Department of Software Engineering, UFTB</span>
       </footer>
     </div>
   );
