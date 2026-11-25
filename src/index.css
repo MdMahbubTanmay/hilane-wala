@@ -597,3 +597,135 @@ input:disabled {
     font-size: 25px;
   }
 }
+
+
+.leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rank-row {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 100%;
+  min-height: 66px;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 10px 14px;
+  margin: 0;
+
+  background: #151e2d !important;
+  border: 1px solid #29384c !important;
+  border-radius: 12px !important;
+
+  color: #f1f5f9 !important;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.rank-row:hover {
+  background: #1c293b !important;
+  border-color: #22d3ee !important;
+  transform: translateY(-2px);
+}
+
+.rank-row:active {
+  transform: scale(0.99);
+}
+
+.rank-number {
+  min-width: 22px;
+  color: #22d3ee !important;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.rank-row img,
+.rank-row .avatar {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.rank-row .avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #26384f;
+  color: #22d3ee;
+}
+
+.rank-player {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rank-player strong {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-player span {
+  color: #8493a8;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.rank-score {
+  color: #22d3ee !important;
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.rank-row:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 3px;
+}
+
+
+.total-players-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  margin: 16px 0 24px;
+  border: 1px solid #29384c;
+  border-radius: 16px;
+  background: #151e2d;
+  color: #22d3ee;
+}
+
+.total-players-card span {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.total-players-card h2 {
+  color: #f8fafc;
+  font-size: 30px;
+  margin: 8px 0 0;
+}

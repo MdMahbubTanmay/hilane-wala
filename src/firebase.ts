@@ -423,3 +423,18 @@ export async function getMyScore(
     ? (snapshot.val() as Score)
     : null;
 }
+
+export async function getTotalPlayers(): Promise<number> {
+  try {
+    const snapshot = await get(ref(db, "scores"));
+
+    if (!snapshot.exists()) return 0;
+
+    const scores = snapshot.val();
+
+    return Object.keys(scores).length;
+  } catch (error) {
+    console.error("Total players error:", error);
+    throw error;
+  }
+}

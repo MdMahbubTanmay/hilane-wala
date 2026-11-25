@@ -28,6 +28,7 @@ import {
   getMyRank,
   type Profile,
   type Score,
+  getTotalPlayers
 } from "./firebase";
 
 import {
@@ -75,6 +76,8 @@ export default function App() {
   const authUidRef = useRef<string | null>(auth.currentUser?.uid ?? null);
   const challengeOwnerRef = useRef<string | null>(null);
   const savingScoreRef = useRef(false);
+
+  const [totalPlayers, setTotalPlayers] = useState(0);
 
 
   useEffect(() => {
@@ -136,7 +139,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  
+
   useEffect(() => {
     return () => stopShakeDetection();
   }, []);
@@ -222,25 +225,33 @@ export default function App() {
       });
   }, [completed, user, count]);
 
+
   async function loadRanks() {
-    setRankLoading(true);
+  setRankLoading(true);
 
-    try {
-      const [scores, rank] = await Promise.all([
-        getLeaderboard(),
-        user ? getMyRank(user.uid) : Promise.resolve(null),
-      ]);
-
-      setLeaderboard(scores);
-      setMyRank(rank);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not load ranks."
-      );
-    } finally {
-      setRankLoading(false);
-    }
+  try {
+    const scores = await getLeaderboard();
+    setLeaderboard(scores);
+  } catch (error) {
+    console.error("Leaderboard error:", error);
   }
+
+  try {
+    const rank = user ? await getMyRank(user.uid) : null;
+    setMyRank(rank);
+  } catch (error) {
+    console.error("Rank error:", error);
+  }
+
+  try {
+    const total = await getTotalPlayers();
+    setTotalPlayers(total);
+  } catch (error) {
+    console.error("Total players error:", error);
+  }
+
+  setRankLoading(false);
+}
 
   useEffect(() => {
     if (page === "ranks") loadRanks();
@@ -552,14 +563,35 @@ export default function App() {
             <span className="eyebrow">GLOBAL COMPETITION</span>
             <h1>Leaderboard</h1>
             <p className="muted">The best 'Hilane Wala' in the world.</p>
-
-            <div className="my-rank-card">
+            
+            
+            
+            <div className="total-players-card">
               <div>
+                <span>TOTAL REGISTERED PLAYERS</span>
+                <h2>{totalPlayers.toLocaleString()}</h2>
+              </div>
+
+
+
+              <div>
+
+                <span className="muted">YOUR GLOBAL RANK</span>
+                <h2>{myRank ? `#${myRank}` : "Unranked"}</h2>
+              </div>
+
+            </div>
+
+            {/* <div className="my-rank-card">
+              <div>
+
                 <span className="muted">YOUR GLOBAL RANK</span>
                 <h2>{myRank ? `#${myRank}` : "Unranked"}</h2>
               </div>
               <Trophy size={35} />
-            </div>
+
+            </div> */}
+
 
             <div className="leaderboard">
               <div className="leaderboard-title">
@@ -776,9 +808,7 @@ export default function App() {
               {selectedPlayer.username}
             </h2>
 
-            <p style={{ color: "#aaa", margin: "0 0 18px" }}>
-              HILANE WALA PLAYER
-            </p>
+
 
             <div
               className="profile-note-box"
@@ -792,7 +822,7 @@ export default function App() {
               }}
             >
               {selectedPlayer.notes?.trim() ||
-                "এই খেলোয়াড় এখনো কোনো প্রোফাইল নোট যোগ করেননি।"}
+                "Want to be the best hilane wala"}
             </div>
 
             <div style={{ marginTop: 18 }}>
