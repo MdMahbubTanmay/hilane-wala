@@ -3,12 +3,17 @@ export type ShakeCallback = () => void;
 
 let cleanup: (() => void) | null = null;
 
-const SHAKE_THRESHOLD = 5;
-const QUIET_THRESHOLD = 1;
-const COOLDOWN = 100;
+
+const SHAKE_THRESHOLD = 3.5;
+const COOLDOWN = 180;
+
+
+const GRAVITY_ALPHA = 0.8;
 
 export async function requestMotionPermission(): Promise<boolean> {
-  if (!("DeviceMotionEvent" in window)) return false;
+  if (!("DeviceMotionEvent" in window)) {
+    return false;
+  }
 
   const Motion = DeviceMotionEvent as typeof DeviceMotionEvent & {
     requestPermission?: () => Promise<"granted" | "denied">;
@@ -28,9 +33,13 @@ export async function requestMotionPermission(): Promise<boolean> {
 export function startShakeDetection(callback: ShakeCallback) {
   stopShakeDetection();
 
-  let gravity = { x: 0, y: 0, z: 0 };
+  let gravity = {
+    x: 0,
+    y: 0,
+    z: 0
+  };
+
   let initialized = false;
-  let readyForShake = true;
   let lastShake = 0;
 
   const handleMotion = (event: DeviceMotionEvent) => {
@@ -39,6 +48,7 @@ export function startShakeDetection(callback: ShakeCallback) {
     let z: number;
 
     const acceleration = event.acceleration;
+
 
     if (
       acceleration &&
@@ -50,6 +60,7 @@ export function startShakeDetection(callback: ShakeCallback) {
       y = acceleration.y;
       z = acceleration.z;
     } else {
+
       const raw = event.accelerationIncludingGravity;
 
       if (
@@ -57,7 +68,9 @@ export function startShakeDetection(callback: ShakeCallback) {
         raw.x === null ||
         raw.y === null ||
         raw.z === null
-      ) return;
+      ) {
+        return;
+      }
 
       if (!initialized) {
         gravity = {
@@ -70,35 +83,38 @@ export function startShakeDetection(callback: ShakeCallback) {
         return;
       }
 
-      const alpha = 0.85;
+      gravity.x =
+        GRAVITY_ALPHA * gravity.x +
+        (1 - GRAVITY_ALPHA) * raw.x;
 
-      gravity.x = alpha * gravity.x + (1 - alpha) * raw.x;
-      gravity.y = alpha * gravity.y + (1 - alpha) * raw.y;
-      gravity.z = alpha * gravity.z + (1 - alpha) * raw.z;
+      gravity.y =
+        GRAVITY_ALPHA * gravity.y +
+        (1 - GRAVITY_ALPHA) * raw.y;
+
+      gravity.z =
+        GRAVITY_ALPHA * gravity.z +
+        (1 - GRAVITY_ALPHA) * raw.z;
 
       x = raw.x - gravity.x;
       y = raw.y - gravity.y;
       z = raw.z - gravity.z;
     }
 
-    const magnitude = Math.sqrt(x * x + y * y + z * z);
+
+    const magnitude = Math.sqrt(
+      x * x +
+      y * y +
+      z * z
+    );
 
     const now = Date.now();
 
 
-    if (magnitude < QUIET_THRESHOLD) {
-      readyForShake = true;
-      return;
-    }
-
     if (
       magnitude >= SHAKE_THRESHOLD &&
-      readyForShake &&
       now - lastShake >= COOLDOWN
     ) {
       lastShake = now;
-      readyForShake = false;
-
       callback();
     }
   };
@@ -113,6 +129,8 @@ export function startShakeDetection(callback: ShakeCallback) {
 }
 
 export function stopShakeDetection() {
-  cleanup?.();
-  cleanup = null;
+  if (cleanup) {
+    cleanup();
+    cleanup = null;
+  }
 }
