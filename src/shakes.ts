@@ -3,9 +3,9 @@ export type ShakeCallback = () => void;
 
 let cleanup: (() => void) | null = null;
 
-const SHAKE_THRESHOLD = 12;
-const QUIET_THRESHOLD = 4.5;
-const COOLDOWN = 320;
+const SHAKE_THRESHOLD = 7;
+const QUIET_THRESHOLD = 2.5;
+const COOLDOWN = 180;
 
 export async function requestMotionPermission(): Promise<boolean> {
   if (!("DeviceMotionEvent" in window)) return false;
