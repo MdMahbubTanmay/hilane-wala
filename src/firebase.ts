@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 
 import {
@@ -25,7 +24,6 @@ import {
   limitToLast,
 } from "firebase/database";
 
-
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -48,6 +46,7 @@ export interface Profile {
   username: string;
   email: string;
   photoURL: string;
+  notes?: string;
   createdAt: number;
 }
 
@@ -55,6 +54,7 @@ export interface Score {
   uid: string;
   username: string;
   photoURL: string;
+  notes?: string;
   bestScore: number;
   lastScore: number;
   updatedAt: number;
@@ -67,8 +67,6 @@ export function subscribeAuth(
 ) {
   return onAuthStateChanged(auth, callback);
 }
-
-
 
 export async function registerUser(
   email: string,
@@ -101,7 +99,6 @@ export async function registerUser(
   let reserved = false;
 
   try {
-
     const reservation = await runTransaction(
       usernameRef,
       (current) => {
@@ -124,6 +121,7 @@ export async function registerUser(
       username: cleanUsername,
       email: user.email || email.trim(),
       photoURL: photoURL.trim(),
+      notes: "",
       createdAt: Date.now(),
     };
 
@@ -131,6 +129,7 @@ export async function registerUser(
       uid: user.uid,
       username: cleanUsername,
       photoURL: photoURL.trim(),
+      notes: "",
       bestScore: 0,
       lastScore: 0,
       updatedAt: Date.now(),
@@ -142,7 +141,6 @@ export async function registerUser(
     ]);
 
     return user;
-
   } catch (error) {
     if (reserved) {
       await set(usernameRef, null).catch(() => {});
@@ -153,8 +151,6 @@ export async function registerUser(
     throw error;
   }
 }
-
-
 
 export async function loginUser(
   email: string,
@@ -169,11 +165,9 @@ export async function loginUser(
   return result.user;
 }
 
-
 export async function logoutUser(): Promise<void> {
   await signOut(auth);
 }
-
 
 
 export async function getProfile(
@@ -188,13 +182,12 @@ export async function getProfile(
   return snapshot.val() as Profile;
 }
 
-
-
 export async function updateProfile(
   uid: string,
   oldUsername: string,
   newUsername: string,
-  photoURL: string
+  photoURL: string,
+  notes = ""
 ): Promise<void> {
   if (auth.currentUser?.uid !== uid) {
     throw new Error("Unauthorized profile update.");
@@ -209,6 +202,7 @@ export async function updateProfile(
   }
 
   const cleanPhotoURL = photoURL.trim();
+  const cleanNotes = notes.trim().slice(0, 40);
 
   if (cleanPhotoURL) {
     try {
@@ -224,12 +218,13 @@ export async function updateProfile(
 
   const newUsernameRef = ref(db, `usernames/${newKey}`);
 
-  
+
   if (newKey !== oldKey) {
     const reservation = await runTransaction(
       newUsernameRef,
       (current) => {
         if (current !== null) return;
+
         return { uid };
       }
     );
@@ -243,8 +238,11 @@ export async function updateProfile(
     const updates: Record<string, unknown> = {
       [`users/${uid}/username`]: cleanUsername,
       [`users/${uid}/photoURL`]: cleanPhotoURL,
+      [`users/${uid}/notes`]: cleanNotes,
+
       [`scores/${uid}/username`]: cleanUsername,
       [`scores/${uid}/photoURL`]: cleanPhotoURL,
+      [`scores/${uid}/notes`]: cleanNotes,
     };
 
     await update(ref(db), updates);
@@ -253,7 +251,6 @@ export async function updateProfile(
     if (newKey !== oldKey) {
       await set(ref(db, `usernames/${oldKey}`), null);
     }
-
   } catch (error) {
     if (newKey !== oldKey) {
       await set(newUsernameRef, null).catch(() => {});
@@ -279,8 +276,6 @@ export async function changeEmail(email: string): Promise<void> {
   });
 }
 
-
-
 export async function changeUserPassword(
   newPassword: string
 ): Promise<void> {
@@ -299,8 +294,6 @@ export async function changeUserPassword(
 
 
 
-
-
 export async function submitScore(
   uid: string,
   score: number
@@ -308,6 +301,7 @@ export async function submitScore(
   | { saved: true }
   | { saved: false; previousBest: number }
 > {
+ 
   if (auth.currentUser?.uid !== uid) {
     throw new Error("Unauthorized score submission.");
   }
@@ -327,7 +321,7 @@ export async function submitScore(
   const result = await runTransaction(scoreRef, (current) => {
     const previousBest = Number(current?.bestScore) || 0;
 
-    // আগের রেকর্ড না ভাঙলে Save হবে না
+
     if (current && score <= previousBest) {
       return;
     }
@@ -336,6 +330,7 @@ export async function submitScore(
       uid,
       username: current?.username || profile.username,
       photoURL: current?.photoURL || profile.photoURL || "",
+      notes: current?.notes || profile.notes || "",
       bestScore: score,
       lastScore: score,
       updatedAt: Date.now(),
@@ -386,7 +381,6 @@ export async function getLeaderboard(): Promise<Score[]> {
   );
 }
 
-
 export async function getMyRank(
   uid: string
 ): Promise<number | null> {
@@ -419,8 +413,6 @@ export async function getMyRank(
 export function getCurrentUser(): User | null {
   return auth.currentUser;
 }
-
-
 
 export async function getMyScore(
   uid: string

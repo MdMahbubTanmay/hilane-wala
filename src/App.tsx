@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Home as HomeIcon,
   Trophy,
@@ -55,6 +54,8 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [photoURL, setPhotoURL] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState<Score | null>(null);
 
   const [count, setCount] = useState(0);
   const [time, setTime] = useState(60);
@@ -71,18 +72,59 @@ export default function App() {
   const [saving, setSaving] = useState(false);
 
 
+  const authUidRef = useRef<string | null>(auth.currentUser?.uid ?? null);
+  const challengeOwnerRef = useRef<string | null>(null);
+  const savingScoreRef = useRef(false);
+
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(async (currentUser) => {
+      const nextUid = currentUser?.uid ?? null;
+      const accountChanged = authUidRef.current !== nextUid;
+
+      authUidRef.current = nextUid;
       setUser(currentUser);
+
+      if (accountChanged) {
+        stopShakeDetection();
+
+        challengeOwnerRef.current = null;
+        savingScoreRef.current = false;
+
+        setCount(0);
+        setTime(60);
+        setRunning(false);
+        setCompleted(false);
+        setMotionError("");
+        setMessage("");
+
+        setLeaderboard([]);
+        setMyRank(null);
+        setSelectedPlayer(null);
+
+        setNotes("");
+        setUsername("");
+        setPhotoURL("");
+        setProfile(null);
+      }
 
       if (currentUser) {
         try {
           const data = await getProfile(currentUser.uid);
-          setProfile(data);
+
+
+          if (authUidRef.current === currentUser.uid) {
+            setProfile(data);
+            setNotes(data?.notes || "");
+            setUsername(data?.username || "");
+            setPhotoURL(data?.photoURL || "");
+          }
         } catch (error) {
           console.error(error);
-          setProfile(null);
+
+          if (authUidRef.current === currentUser.uid) {
+            setProfile(null);
+          }
         }
       } else {
         setProfile(null);
@@ -94,8 +136,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-
-
+  
   useEffect(() => {
     return () => stopShakeDetection();
   }, []);
@@ -122,36 +163,64 @@ export default function App() {
   }, [running]);
 
 
+  useEffect(() => {
+    if (!completed || !user || count <= 0) return;
 
+    const submittedUid = challengeOwnerRef.current;
+    const submittedScore = count;
 
-useEffect(() => {
-  if (!completed || !user || count <= 0) return;
+    if (
+      !submittedUid ||
+      submittedUid !== user.uid ||
+      auth.currentUser?.uid !== submittedUid ||
+      authUidRef.current !== submittedUid ||
+      savingScoreRef.current
+    ) {
+      return;
+    }
 
-  submitScore(user.uid, count)
-    .then((result) => {
-      if (result.saved) {
+    savingScoreRef.current = true;
+
+    submitScore(submittedUid, submittedScore)
+      .then((result) => {
+
+        if (
+          auth.currentUser?.uid !== submittedUid ||
+          authUidRef.current !== submittedUid
+        ) {
+          return;
+        }
+
+        if (result.saved) {
+          setMessage(
+            `বাহ! আপনি নিজের আগের রেকর্ড ভেঙেছেন। নতুন স্কোর: ${submittedScore}`
+          );
+        } else {
+          setMessage(
+            `আপনার আগের স্কোর ${result.previousBest} ছিল। এইবারের স্কোর তার চেয়ে কম বা সমান, তাই সেভ হয়নি। আরও জোরে চেষ্টা করুন!`
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("SCORE SAVE ERROR:", error);
+
+        if (
+          auth.currentUser?.uid !== submittedUid ||
+          authUidRef.current !== submittedUid
+        ) {
+          return;
+        }
+
         setMessage(
-          `বাহ মামা, কী ঝাঁকানোই না ঝাঁকালে, নতুন স্কোর: ${count} `
+          error instanceof Error
+            ? error.message
+            : "স্কোর সেভ করা সম্ভব হয়নি। আবার চেষ্টা করুন।"
         );
-      } else {
-        setMessage(
-          `আগের রেকর্ড ছিল ${result.previousBest}। এবার তা ভাঙতে পারনি। আরো জোরে ঝাঁকাও মামা`
-        );
-      }
-    })
-    .catch((error) => {
-      console.error("SCORE SAVE ERROR:", error);
-
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "স্কোর সেভ করা সম্ভব হয়নি। আবার চেষ্টা করুন।"
-      );
-    });
-}, [completed, user, count]);
-
-
-
+      })
+      .finally(() => {
+        savingScoreRef.current = false;
+      });
+  }, [completed, user, count]);
 
   async function loadRanks() {
     setRankLoading(true);
@@ -177,8 +246,6 @@ useEffect(() => {
     if (page === "ranks") loadRanks();
   }, [page, user]);
 
-
-
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthLoading(true);
@@ -199,8 +266,6 @@ useEffect(() => {
     }
   }
 
-
-
   async function startChallenge() {
     if (!user || running) return;
 
@@ -219,6 +284,12 @@ useEffect(() => {
     setTime(60);
     setCompleted(false);
     setMessage("");
+
+    savingScoreRef.current = false;
+
+
+    challengeOwnerRef.current = user.uid;
+
     setRunning(true);
 
     startShakeDetection(() => {
@@ -227,10 +298,12 @@ useEffect(() => {
     });
   }
 
-
-
   function resetChallenge() {
     stopShakeDetection();
+
+    challengeOwnerRef.current = null;
+    savingScoreRef.current = false;
+
     setRunning(false);
     setCompleted(false);
     setCount(0);
@@ -238,8 +311,6 @@ useEffect(() => {
     setMotionError("");
     setMessage("");
   }
-
-
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -254,10 +325,12 @@ useEffect(() => {
         user.uid,
         profile.username,
         username,
-        photoURL
+        photoURL,
+        notes
       );
 
       const updated = await getProfile(user.uid);
+
       setProfile(updated);
       setMessage("Profile updated successfully!");
     } catch (error) {
@@ -269,8 +342,6 @@ useEffect(() => {
     }
   }
 
-
-
   if (loading) {
     return (
       <div className="loading-screen">
@@ -280,13 +351,13 @@ useEffect(() => {
     );
   }
 
-
-
   if (!user) {
     return (
       <main className="auth-screen">
         <div className="auth-card">
-          <div className="brand">HILANE <span>WALA.</span></div>
+          <div className="brand">
+            HILANE <span>WALA.</span>
+          </div>
 
           <div className="auth-icon">
             <User size={32} />
@@ -380,12 +451,12 @@ useEffect(() => {
     );
   }
 
-
-
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">HILANE <span>WALA</span></div>
+        <div className="brand">
+          HILANE <span>WALA</span>
+        </div>
 
         <div className="header-user">
           {profile?.photoURL ? (
@@ -492,7 +563,10 @@ useEffect(() => {
 
             <div className="leaderboard">
               <div className="leaderboard-title">
-                <h3><Medal size={19} /> TOP 10 PLAYERS</h3>
+                <h3>
+                  <Medal size={19} /> TOP 10 PLAYERS
+                </h3>
+
                 <button onClick={loadRanks} title="Refresh">
                   <RotateCcw size={17} />
                 </button>
@@ -504,13 +578,20 @@ useEffect(() => {
                 <p className="muted">No scores yet. Be the first!</p>
               ) : (
                 leaderboard.map((player, index) => (
-                  <div className="rank-row" key={player.uid}>
+                  <button
+                    type="button"
+                    className="rank-row"
+                    key={player.uid}
+                    onClick={() => setSelectedPlayer(player)}
+                  >
                     <span className="rank-number">#{index + 1}</span>
 
                     {player.photoURL ? (
                       <img src={player.photoURL} alt="" />
                     ) : (
-                      <div className="avatar"><User size={18} /></div>
+                      <div className="avatar">
+                        <User size={18} />
+                      </div>
                     )}
 
                     <div className="rank-player">
@@ -518,10 +599,8 @@ useEffect(() => {
                       <span>{player.uid === user.uid ? "YOU" : "PLAYER"}</span>
                     </div>
 
-                    <strong className="rank-score">
-                      {player.bestScore}
-                    </strong>
-                  </div>
+                    <strong className="rank-score">{player.bestScore}</strong>
+                  </button>
                 ))
               )}
             </div>
@@ -566,6 +645,15 @@ useEffect(() => {
                 placeholder="https://example.com/photo.jpg"
               />
 
+              <label>Profile Note (Maximum 40 characters)</label>
+              <input
+                type="text"
+                maxLength={40}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value.slice(0, 40))}
+                placeholder="Write a short note about yourself..."
+              />
+
               <label>Email</label>
               <input value={profile?.email || user.email || ""} disabled />
 
@@ -579,6 +667,18 @@ useEffect(() => {
             <button
               className="logout-button"
               onClick={async () => {
+                stopShakeDetection();
+
+                challengeOwnerRef.current = null;
+                savingScoreRef.current = false;
+
+                setCount(0);
+                setTime(60);
+                setRunning(false);
+                setCompleted(false);
+                setMessage("");
+                setSelectedPlayer(null);
+
                 await logoutUser();
                 setPage("home");
               }}
@@ -588,6 +688,122 @@ useEffect(() => {
           </motion.main>
         )}
       </AnimatePresence>
+
+      {selectedPlayer && (
+        <div
+          className="profile-modal-overlay"
+          onClick={() => setSelectedPlayer(null)}
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.72)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <section
+            className="profile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${selectedPlayer.username} profile`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "min(100%, 380px)",
+              padding: 28,
+              borderRadius: 22,
+              background: "#171717",
+              color: "#fff",
+              textAlign: "center",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
+            }}
+          >
+            <button
+              type="button"
+              className="profile-modal-close"
+              aria-label="Close profile"
+              onClick={() => setSelectedPlayer(null)}
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 14,
+                border: 0,
+                background: "transparent",
+                color: "#fff",
+                fontSize: 25,
+                cursor: "pointer",
+              }}
+            >
+              ×
+            </button>
+
+            {selectedPlayer.photoURL ? (
+              <img
+                className="profile-modal-avatar"
+                src={selectedPlayer.photoURL}
+                alt={selectedPlayer.username}
+                style={{
+                  width: 86,
+                  height: 86,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  margin: "8px auto 14px",
+                }}
+              />
+            ) : (
+              <div
+                className="profile-modal-avatar default-avatar"
+                style={{
+                  width: 86,
+                  height: 86,
+                  borderRadius: "50%",
+                  margin: "8px auto 14px",
+                  display: "grid",
+                  placeItems: "center",
+                  background: "#303030",
+                }}
+              >
+                <User size={38} />
+              </div>
+            )}
+
+            <h2 style={{ margin: "8px 0 4px" }}>
+              {selectedPlayer.username}
+            </h2>
+
+            <p style={{ color: "#aaa", margin: "0 0 18px" }}>
+              HILANE WALA PLAYER
+            </p>
+
+            <div
+              className="profile-note-box"
+              style={{
+                padding: 16,
+                borderRadius: 14,
+                background: "#242424",
+                color: "#e8e8e8",
+                lineHeight: 1.5,
+                overflowWrap: "anywhere",
+              }}
+            >
+              {selectedPlayer.notes?.trim() ||
+                "এই খেলোয়াড় এখনো কোনো প্রোফাইল নোট যোগ করেননি।"}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <span style={{ color: "#aaa", fontSize: 12 }}>BEST SCORE</span>
+              <h2 style={{ margin: "4px 0 0", fontSize: 32 }}>
+                {selectedPlayer.bestScore}
+              </h2>
+            </div>
+          </section>
+        </div>
+      )}
 
       <nav className="bottom-nav">
         <button
@@ -611,6 +827,7 @@ useEffect(() => {
           onClick={() => {
             setUsername(profile?.username || "");
             setPhotoURL(profile?.photoURL || "");
+            setNotes(profile?.notes || "");
             setMessage("");
             setPage("settings");
           }}
@@ -621,7 +838,7 @@ useEffect(() => {
       </nav>
 
       <footer>
-Md Mahbub Tanmay 
+        Md Mahbub Tanmay
         <span>Department of Software Engineering, UFTB</span>
       </footer>
     </div>
