@@ -123,17 +123,33 @@ export default function App() {
 
 
 
-  useEffect(() => {
-    if (!completed || !user || count <= 0) return;
 
-    submitScore(user.uid, count)
-      .then(() => {
-        setMessage("Your score has been saved!");
-      })
-      .catch((error) => {
-        setMessage(error.message || "Score saving failed.");
-      });
-  }, [completed, user, count]);
+useEffect(() => {
+  if (!completed || !user || count <= 0) return;
+
+  submitScore(user.uid, count)
+    .then((result) => {
+      if (result.saved) {
+        setMessage(
+          `বাহ মামা, কী ঝাঁকানোই না ঝাঁকালে, নতুন স্কোর: ${count} `
+        );
+      } else {
+        setMessage(
+          `আগের রেকর্ড ছিল ${result.previousBest}। এবার তা ভাঙতে পারনি। আরো জোরে ঝাঁকাও মামা`
+        );
+      }
+    })
+    .catch((error) => {
+      console.error("SCORE SAVE ERROR:", error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "স্কোর সেভ করা সম্ভব হয়নি। আবার চেষ্টা করুন।"
+      );
+    });
+}, [completed, user, count]);
+
 
 
 
@@ -369,7 +385,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">HILANE <span>WALA.</span></div>
+        <div className="brand">HILANE <span>WALA</span></div>
 
         <div className="header-user">
           {profile?.photoURL ? (
@@ -605,7 +621,7 @@ export default function App() {
       </nav>
 
       <footer>
-        Developed by Md Mahbub Tanmay
+Md Mahbub Tanmay 
         <span>Department of Software Engineering, UFTB</span>
       </footer>
     </div>

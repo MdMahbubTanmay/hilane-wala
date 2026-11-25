@@ -249,7 +249,7 @@ export async function updateProfile(
 
     await update(ref(db), updates);
 
-    // Remove previous username only after profile update
+
     if (newKey !== oldKey) {
       await set(ref(db, `usernames/${oldKey}`), null);
     }
@@ -298,39 +298,67 @@ export async function changeUserPassword(
 }
 
 
+
+
+
 export async function submitScore(
   uid: string,
   score: number
-): Promise<void> {
+): Promise<
+  | { saved: true }
+  | { saved: false; previousBest: number }
+> {
   if (auth.currentUser?.uid !== uid) {
     throw new Error("Unauthorized score submission.");
   }
 
-  if (
-    !Number.isInteger(score) ||
-    score < 0 ||
-    score > 10000
-  ) {
+  if (!Number.isInteger(score) || score < 0 || score > 10000) {
     throw new Error("Invalid score.");
+  }
+
+  const profile = await getProfile(uid);
+
+  if (!profile) {
+    throw new Error("User profile not found.");
   }
 
   const scoreRef = ref(db, `scores/${uid}`);
 
   const result = await runTransaction(scoreRef, (current) => {
-    if (!current) return;
+    const previousBest = Number(current?.bestScore) || 0;
+
+    // আগের রেকর্ড না ভাঙলে Save হবে না
+    if (current && score <= previousBest) {
+      return;
+    }
 
     return {
-      ...current,
+      uid,
+      username: current?.username || profile.username,
+      photoURL: current?.photoURL || profile.photoURL || "",
+      bestScore: score,
       lastScore: score,
-      bestScore: Math.max(current.bestScore || 0, score),
       updatedAt: Date.now(),
     };
   });
 
-  if (!result.committed) {
-    throw new Error("Unable to save score.");
+  if (result.committed) {
+    return { saved: true };
   }
+
+  const previousBest =
+    Number(result.snapshot.val()?.bestScore) || 0;
+
+  if (score <= previousBest) {
+    return {
+      saved: false,
+      previousBest,
+    };
+  }
+
+  throw new Error("Unable to save score.");
 }
+
 
 
 export async function getLeaderboard(): Promise<Score[]> {
