@@ -5,7 +5,7 @@ let cleanup: (() => void) | null = null;
 
 
 const SHAKE_THRESHOLD = 3.5;
-const COOLDOWN = 180;
+const COOLDOWN = 120;
 
 
 const GRAVITY_ALPHA = 0.8;
