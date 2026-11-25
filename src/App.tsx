@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Medal,
   LoaderCircle,
-  X,
   Lock,
   Mail,
 } from "lucide-react";
